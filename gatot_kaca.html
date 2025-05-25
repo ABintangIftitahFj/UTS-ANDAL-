@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mesin Pencari Internal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'poppins': ['Poppins', 'sans-serif'],
+                    },
+                    animation: {
+                        'gradient': 'gradient 8s ease infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        gradient: {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+            min-height: 100vh;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+        
+        .btn-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .loading-dots {
+            display: inline-block;
+        }
+        
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+        
+        .search-result-item {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .search-result-item:hover {
+            border-left-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-success { background-color: #10b981; }
+        .status-error { background-color: #ef4444; }
+        .status-info { background-color: #3b82f6; }
+        .status-warning { background-color: #f59e0b; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <!-- Background Pattern -->
+    <div class="fixed inset-0 opacity-10">
+        <div class="absolute inset-0" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.5) 1px, transparent 0); background-size: 40px 40px;"></div>
+    </div>
+    
+    <div class="container mx-auto max-w-6xl relative z-10">
+        <!-- Header -->
+        <header class="text-center mb-12 animate-float">
+            <div class="glass-effect rounded-3xl p-8 mb-8 card-hover">
+                <div class="flex items-center justify-center mb-6">
+                    <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mr-4">
+                        <i class="fas fa-search text-white text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">
+                            Mesin Pencari Internal
+                        </h1>
+                        <p class="text-white/80 text-lg">Telusuri dan temukan informasi dari website organisasi Anda</p>
+                    </div>
+                </div>
+                
+                <!-- Status Indicator -->
+                <div id="connectionStatus" class="inline-flex items-center px-4 py-2 bg-white/20 rounded-full text-white text-sm">
+                    <span class="status-indicator status-info animate-pulse"></span>
+                    <span>Menginisialisasi koneksi...</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Configuration Section -->
+            <section class="glass-effect rounded-3xl p-8 card-hover">
+                <div class="flex items-center mb-6">
+                    <i class="fas fa-cog text-2xl text-white mr-3"></i>
+                    <h2 class="text-2xl font-semibold text-white">Konfigurasi Penelusuran</h2>
+                </div>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label for="seedUrl" class="block text-sm font-medium text-white/90 mb-2">
+                            <i class="fas fa-link mr-2"></i>Seed URL (URL Awal)
+                        </label>
+                        <input type="url" id="seedUrl" 
+                               class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
+                               placeholder="https://www.example.com" value="https://undip.ac.id/">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="maxPages" class="block text-sm font-medium text-white/90 mb-2">
+                                <i class="fas fa-list-ol mr-2"></i>Maks. Halaman
+                            </label>
+                            <input type="number" id="maxPages" value="10" min="1" max="100"
+                                   class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label for="crawlDelay" class="block text-sm font-medium text-white/90 mb-2">
+                                <i class="fas fa-clock mr-2"></i>Delay (ms)
+                            </label>
+                            <input type="number" id="crawlDelay" value="1000" min="500" max="5000"
+                                   class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button id="startCrawlBtn" class="flex-1 btn-gradient text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300">
+                            <i class="fas fa-play mr-2"></i>Mulai Penelusuran
+                        </button>
+                        <button id="stopCrawlBtn" class="px-6 py-3 bg-red-500/80 hover:bg-red-600 text-white font-semibold rounded-xl transition-all duration-300" disabled>
+                            <i class="fas fa-stop mr-2"></i>Hentikan
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search Section -->
+            <section class="glass-effect rounded-3xl p-8 card-hover">
+                <div class="flex items-center mb-6">
+                    <i class="fas fa-search text-2xl text-white mr-3"></i>
+                    <h2 class="text-2xl font-semibold text-white">Pencarian Halaman</h2>
+                </div>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label for="searchKeywords" class="block text-sm font-medium text-white/90 mb-2">
+                            <i class="fas fa-key mr-2"></i>Kata Kunci
+                        </label>
+                        <input type="text" id="searchKeywords" 
+                               class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
+                               placeholder="Masukkan kata kunci pencarian...">
+                    </div>
+                    
+                    <div>
+                        <label for="maxSearchResults" class="block text-sm font-medium text-white/90 mb-2">
+                            <i class="fas fa-list mr-2"></i>Maksimal Hasil
+                        </label>
+                        <input type="number" id="maxSearchResults" value="10" min="1" max="50"
+                               class="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/60 focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all">
+                    </div>
+                    
+                    <button id="searchBtn" class="w-full btn-gradient text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300">
+                        <i class="fas fa-search mr-2"></i>Cari Sekarang
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Crawl Log Section -->
+        <section class="glass-effect rounded-3xl p-8 mb-8 card-hover">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-terminal text-2xl text-white mr-3"></i>
+                    <h2 class="text-2xl font-semibold text-white">Log Penelusuran</h2>
+                </div>
+                <button id="clearLogBtn" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-300">
+                    <i class="fas fa-trash mr-2"></i>Bersihkan
+                </button>
+            </div>
+            
+            <div id="crawlLog" class="h-64 p-4 bg-black/20 border border-white/20 rounded-xl overflow-y-auto text-sm custom-scrollbar">
+                <div class="text-white/70 flex items-center">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Log penelusuran akan muncul di sini...
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="mt-4">
+                <div class="flex justify-between text-white/80 text-sm mb-2">
+                    <span>Progress</span>
+                    <span id="progressText">0/0</span>
+                </div>
+                <div class="w-full bg-white/20 rounded-full h-2">
+                    <div id="progressBar" class="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search Results Section -->
+        <section class="glass-effect rounded-3xl p-8 card-hover">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-list-ul text-2xl text-white mr-3"></i>
+                <h2 class="text-2xl font-semibold text-white">Hasil Pencarian</h2>
+                <span id="resultCount" class="ml-auto px-3 py-1 bg-white/20 rounded-full text-white text-sm">0 hasil</span>
+            </div>
+            
+            <div id="searchResults" class="space-y-4">
+                <div class="text-white/70 text-center py-8">
+                    <i class="fas fa-search text-4xl mb-4 opacity-50"></i>
+                    <p>Hasil pencarian akan ditampilkan di sini...</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Route Modal -->
+    <div id="routeModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-effect w-full max-w-2xl rounded-3xl p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-semibold text-white">
+                    <i class="fas fa-route mr-2"></i>Rute Tautan dari Seed URL
+                </h3>
+                <button id="closeModalBtn" class="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-all">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="routeDetails" class="max-h-96 overflow-y-auto custom-scrollbar space-y-3">
+                <!-- Route details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Mock data untuk demo (menggantikan Firebase)
+        let crawledData = new Map();
+        let userId = 'demo-user';
+        let isAuthReady = true;
+        let stopCrawling = false;
+        let currentProgress = { current: 0, total: 0 };
+
+        // CORS Proxy URLs - menggunakan beberapa opsi untuk backup
+        const CORS_PROXIES = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://cors-anywhere.herokuapp.com/',
+            'https://thingproxy.freeboard.io/fetch/'
+        ];
+        
+        let currentProxyIndex = 0;
+
+        // Helper Functions
+        function getOrganizationalDomain(url) {
+            try {
+                const hostname = new URL(url).hostname.toLowerCase();
+                const parts = hostname.split('.');
+                if (parts.length <= 2) return hostname;
+                if (parts.length > 2 && ['co', 'ac', 'go', 'or', 'sch', 'web'].includes(parts[parts.length - 2]) && parts[parts.length - 1].length === 2) {
+                    return parts.slice(-3).join('.');
+                }
+                return parts.slice(-2).join('.');
+            } catch (e) {
+                console.error("Error parsing URL:", url, e);
+                return null;
+            }
+        }
+
+        function sanitizeText(text) {
+            if (!text) return '';
+            return text.replace(/\s\s+/g, ' ').trim();
+        }
+
+        function displayMessage(message, type = 'info') {
+            const logArea = document.getElementById('crawlLog');
+            const messageDiv = document.createElement('div');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const statusClass = {
+                'error': 'status-error',
+                'success': 'status-success',
+                'info': 'status-info',
+                'warning': 'status-warning'
+            }[type] || 'status-info';
+
+            messageDiv.innerHTML = `
+                <div class="flex items-start mb-2 text-white/90">
+                    <span class="status-indicator ${statusClass} mt-1 flex-shrink-0"></span>
+                    <div class="flex-1">
+                        <span class="text-white/60 text-xs">[${timestamp}]</span>
+                        <span class="ml-2">${message}</span>
+                    </div>
+                </div>
+            `;
+            
+            logArea.appendChild(messageDiv);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function updateProgress(current, total) {
+            currentProgress = { current, total };
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            const percentage = total > 0 ? (current / total) * 100 : 0;
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${current}/${total}`;
+        }
+
+        function updateConnectionStatus(status, message) {
+            const statusEl = document.getElementById('connectionStatus');
+            const statusClasses = {
+                'connected': 'status-success',
+                'error': 'status-error',
+                'connecting': 'status-info',
+                'warning': 'status-warning'
+            };
+            
+            statusEl.innerHTML = `
+                <span class="status-indicator ${statusClasses[status]} ${status === 'connecting' ? 'animate-pulse' : ''}"></span>
+                <span>${message}</span>
+            `;
+        }
+
+        // Improved fetch with CORS proxy rotation
+        async function fetchWithProxy(url) {
+            for (let i = 0; i < CORS_PROXIES.length; i++) {
+                const proxyIndex = (currentProxyIndex + i) % CORS_PROXIES.length;
+                const proxyUrl = CORS_PROXIES[proxyIndex] + encodeURIComponent(url);
+                
+                try {
+                    displayMessage(`Mencoba proxy ${proxyIndex + 1}: ${CORS_PROXIES[proxyIndex]}`, 'info');
+                    
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                    
+                    const response = await fetch(proxyUrl, {
+                        signal: controller.signal,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        }
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        currentProxyIndex = proxyIndex; // Use this proxy for next requests
+                        return response;
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                } catch (error) {
+                    displayMessage(`Proxy ${proxyIndex + 1} gagal: ${error.message}`, 'warning');
+                    if (i === CORS_PROXIES.length - 1) {
+                        throw new Error(`Semua proxy gagal. Error terakhir: ${error.message}`);
+                    }
+                }
+            }
+        }
+
+        // Enhanced crawler with better error handling
+        async function startCrawling() {
+            const seedUrlInput = document.getElementById('seedUrl');
+            let seedUrl = seedUrlInput.value.trim();
+            const maxPages = parseInt(document.getElementById('maxPages').value) || 10;
+            const crawlDelay = parseInt(document.getElementById('crawlDelay').value) || 1000;
+
+            if (!seedUrl) {
+                displayMessage("Seed URL tidak boleh kosong.", "error");
+                return;
+            }
+
+            if (!seedUrl.startsWith('http://') && !seedUrl.startsWith('https://')) {
+                seedUrl = 'https://' + seedUrl;
+                seedUrlInput.value = seedUrl;
+            }
+
+            document.getElementById('crawlLog').innerHTML = '';
+            document.getElementById('searchResults').innerHTML = '<div class="text-white/70 text-center py-8"><i class="fas fa-search text-4xl mb-4 opacity-50"></i><p>Hasil pencarian akan ditampilkan di sini...</p></div>';
+            
+            displayMessage(`🚀 Memulai penelusuran dari: ${seedUrl}`, 'info');
+            document.getElementById('startCrawlBtn').disabled = true;
+            document.getElementById('stopCrawlBtn').disabled = false;
+            stopCrawling = false;
+
+            const seedOrgDomain = getOrganizationalDomain(seedUrl);
+            if (!seedOrgDomain) {
+                displayMessage("❌ Seed URL tidak valid atau tidak dapat menentukan domain organisasi.", "error");
+                document.getElementById('startCrawlBtn').disabled = false;
+                document.getElementById('stopCrawlBtn').disabled = true;
+                return;
+            }
+
+            const queue = [{ url: seedUrl, path: [{ url: seedUrl, label: "Seed URL" }] }];
+            const visitedUrls = new Set();
+            let crawledCount = 0;
+            const domainData = new Map();
+
+            updateProgress(0, maxPages);
+            updateConnectionStatus('connecting', 'Memulai penelusuran...');
+
+            while (queue.length > 0 && crawledCount < maxPages && !stopCrawling) {
+                const current = queue.shift();
+                const currentUrl = current.url;
+                const currentPath = current.path;
+
+                if (visitedUrls.has(currentUrl)) {
+                    continue;
+                }
+                visitedUrls.add(currentUrl);
+
+                displayMessage(`🔍 Menelusuri: ${currentUrl}`, 'info');
+
+                try {
+                    const response = await fetchWithProxy(currentUrl);
+                    const htmlText = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, "text/html");
+
+                    const title = sanitizeText(doc.title) || "Tanpa Judul";
+                    const textContent = sanitizeText(doc.body ? doc.body.innerText : '');
+
+                    // Simpan ke memory storage
+                    const pageData = {
+                        url: currentUrl,
+                        title: title,
+                        textContent: textContent.substring(0, 20000),
+                        pathFromSeed: currentPath,
+                        crawledAt: new Date().toISOString(),
+                        seedUrlDomain: seedOrgDomain
+                    };
+
+                    const domainKey = seedOrgDomain;
+                    if (!domainData.has(domainKey)) {
+                        domainData.set(domainKey, new Map());
+                    }
+                    domainData.get(domainKey).set(currentUrl, pageData);
+                    crawledData = domainData;
+
+                    crawledCount++;
+                    updateProgress(crawledCount, maxPages);
+                    displayMessage(`✅ (${crawledCount}/${maxPages}) ${title}`, 'success');
+
+                    // Extract links
+                    const links = doc.querySelectorAll('a[href]');
+                    let linksAdded = 0;
+                    
+                    links.forEach(link => {
+                        const href = link.getAttribute('href');
+                        if (href && linksAdded < 10) { // Limit links per page
+                            try {
+                                const absoluteUrl = new URL(href, currentUrl).href.split('#')[0];
+                                const linkOrgDomain = getOrganizationalDomain(absoluteUrl);
+
+                                if (linkOrgDomain === seedOrgDomain && !visitedUrls.has(absoluteUrl)) {
+                                    const linkLabel = sanitizeText(link.textContent) || "Tautan Tanpa Label";
+                                    queue.push({
+                                        url: absoluteUrl,
+                                        path: [...currentPath, { url: absoluteUrl, label: linkLabel }]
+                                    });
+                                    linksAdded++;
+                                }
+                            } catch (e) {
+                                // Invalid URL, ignore
+                            }
+                        }
+                    });
+
+                    displayMessage(`🔗 Menambahkan ${linksAdded} tautan ke queue`, 'info');
+
+                } catch (error) {
+                    displayMessage(`❌ Error menelusuri ${currentUrl}: ${error.message}`, 'error');
+                }
+
+                // Delay between requests
+                if (!stopCrawling && crawledCount < maxPages) {
+                    await new Promise(resolve => setTimeout(resolve, crawlDelay));
+                }
+            }
+
+            if (stopCrawling) {
+                displayMessage("⏹️ Penelusuran dihentikan oleh pengguna.", "warning");
+                updateConnectionStatus('warning', 'Penelusuran dihentikan');
+            } else {
+                displayMessage("🎉 Penelusuran selesai!", "success");
+                updateConnectionStatus('connected', `Selesai - ${crawledCount} halaman berhasil di-crawl`);
+            }
+
+            document.getElementById('startCrawlBtn').disabled = false;
+            document.getElementById('stopCrawlBtn').disabled = true;
+        }
+
+        function handleStopCrawling() {
+            stopCrawling = true;
+            displayMessage("⏸️ Proses penghentian penelusuran...", "warning");
+            document.getElementById('stopCrawlBtn').disabled = true;
+        }
+
+        // Enhanced search with better UI
+        async function searchPages() {
+            const keywords = document.getElementById('searchKeywords').value.trim().toLowerCase();
+            const seedUrlForSearch = document.getElementById('seedUrl').value.trim();
+            const maxResults = parseInt(document.getElementById('maxSearchResults').value) || 10;
+
+            if (!keywords) {
+                displayMessage("❌ Kata kunci pencarian tidak boleh kosong.", "error");
+                return;
+            }
+
+            if (!seedUrlForSearch) {
+                displayMessage("❌ Seed URL diperlukan untuk menentukan domain pencarian.", "error");
+                return;
+            }
+
+            const searchOrgDomain = getOrganizationalDomain(seedUrlForSearch);
+            if (!searchOrgDomain) {
+                displayMessage("❌ Seed URL tidak valid untuk pencarian.", "error");
+                return;
+            }
+
+            displayMessage(`🔍 Mencari "${keywords}" dalam domain ${searchOrgDomain}`, 'info');
+            const searchResultsDiv = document.getElementById('searchResults');
+            
+            searchResultsDiv.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full mx-auto mb-4"></div>
+                    <p class="text-white/70">Mencari hasil<span class="loading-dots"></span></p>
+                </div>
+            `;
+
+            try {
+                await new Promise(resolve => setTimeout(resolve, 500)); // Simulate search delay
+
+                let results = [];
+                const domainData = crawledData.get(searchOrgDomain);
+                
+                if (domainData) {
+                    domainData.forEach((pageData) => {
+                        if (pageData.title.toLowerCase().includes(keywords) || 
+                            (pageData.textContent && pageData.textContent.toLowerCase().includes(keywords))) {
+                            results.push(pageData);
+                        }
+                    });
+                }
+
+                results.sort((a, b) => a.pathFromSeed.length - b.pathFromSeed.length);
+                results = results.slice(0, maxResults);
+
+                searchResultsDiv.innerHTML = '';
+                document.getElementById('resultCount').textContent = `${results.length} hasil`;
+
+                if (results.length === 0) {
+                    searchResultsDiv.innerHTML = `
+                        <div class="text-center py-8 text-white/70">
+                            <i class="fas fa-search-minus text-4xl mb-4 opacity-50"></i>
+                            <p>Tidak ada hasil ditemukan untuk "${keywords}"</p>
+                            <p class="text-sm mt-2 opacity-70">Coba gunakan kata kunci yang berbeda atau pastikan crawling sudah dilakukan</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                results.forEach((result, index) => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'search-result-item p-6 bg-white/10 rounded-2xl';
+
+                    const snippet = result.textContent ? 
+                        (result.textContent.toLowerCase().indexOf(keywords) !== -1 ?
+                            '...' + result.textContent.substring(
+                                Math.max(0, result.textContent.toLowerCase().indexOf(keywords) - 50),
+                                Math.min(result.textContent.length, result.textContent.toLowerCase().indexOf(keywords) + keywords.length + 50)
+                            ) + '...' :
+                            result.textContent.substring(0, 150) + (result.textContent.length > 150 ? '...' : '')) :
+                        'Tidak ada konten teks';
+
+                    resultItem.innerHTML = `
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <h3 class="text-xl font-semibold text-white mb-2 hover:text-blue-300 transition-colors">
+                                    <i class="fas fa-file-alt mr-2"></i>${result.title}
+                                </h3>
+                                <a href="${result.url}" target="_blank" class="text-green-400 hover:text-green-300 text-sm break-all block mb-3 transition-colors">
+                                    <i class="fas fa-external-link-alt mr-1"></i>${result.url}
+                                </a>
+                            </div>
+                            <span class="text-white/60 text-xs bg-white/10 px-2 py-1 rounded-full ml-4">#${index + 1}</span>
+                        </div>
+                        <p class="text-white/80 text-sm mb-4 leading-relaxed">${snippet}</p>
+                        <div class="flex items-center justify-between">
+                            <div class="text-white/60 text-xs">
+                                <i class="fas fa-clock mr-1"></i>Crawled: ${new Date(result.crawledAt).toLocaleString('id-ID')}
+                            </div>
+                            <button onclick="displayRouteModal(${JSON.stringify(result.pathFromSeed).replace(/"/g, '&quot;')})" 
+                                    class="px-4 py-2 bg-purple-500/80 hover:bg-purple-600 text-white text-xs rounded-lg transition-all duration-300">
+                                <i class="fas fa-route mr-1"></i>Lihat Rute
+                            </button>
+                        </div>
+                    `;
+
+                    searchResultsDiv.appendChild(resultItem);
+                });
+
+                displayMessage(`✅ Ditemukan ${results.length} hasil untuk "${keywords}"`, 'success');
+
+            } catch (error) {
+                displayMessage(`❌ Error saat mencari: ${error.message}`, 'error');
+                searchResultsDiv.innerHTML = `
+                    <div class="text-center py-8 text-red-400">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>Gagal memuat hasil: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Enhanced route modal
+        function displayRouteModal(path) {
+            const modal = document.getElementById('routeModal');
+            const routeDetails = document.getElementById('routeDetails');
+            routeDetails.innerHTML = '';
+
+            path.forEach((step, index) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'flex items-center p-4 bg-white/10 rounded-xl';
+                
+                stepDiv.innerHTML = `
+                    <div class="flex items-center flex-1">
+                        <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold mr-4 flex-shrink-0">
+                            ${index + 1}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-white font-medium mb-1 truncate">${step.label}</div>
+                            <a href="${step.url}" target="_blank" class="text-blue-300 hover:text-blue-200 text-sm break-all transition-colors">
+                                <i class="fas fa-external-link-alt mr-1"></i>${step.url}
+                            </a>
+                        </div>
+                    </div>
+                    ${index < path.length - 1 ? '<div class="text-white/40 ml-4"><i class="fas fa-arrow-down"></i></div>' : ''}
+                `;
+                
+                routeDetails.appendChild(stepDiv);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeRouteModal() {
+            document.getElementById('routeModal').classList.add('hidden');
+        }
+
+        function clearLog() {
+            document.getElementById('crawlLog').innerHTML = `
+                <div class="text-white/70 flex items-center">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Log penelusuran akan muncul di sini...
+                </div>
+            `;
+            updateProgress(0, 0);
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            updateConnectionStatus('connected', 'Siap untuk penelusuran');
+            
+            document.getElementById('startCrawlBtn').addEventListener('click', startCrawling);
+            document.getElementById('stopCrawlBtn').addEventListener('click', handleStopCrawling);
+            document.getElementById('searchBtn').addEventListener('click', searchPages);
+            document.getElementById('closeModalBtn').addEventListener('click', closeRouteModal);
+            document.getElementById('clearLogBtn').addEventListener('click', clearLog);
+
+            // Enter key support for search
+            document.getElementById('searchKeywords').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchPages();
+                }
+            });
+
+            // Real-time search suggestions (optional enhancement)
+            let searchTimeout;
+            document.getElementById('searchKeywords').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    const value = e.target.value.trim();
+                    if (value.length >= 3) {
+                        // Could implement live search suggestions here
+                        console.log('Search suggestion for:', value);
+                    }
+                }, 300);
+            });
+
+            // URL validation
+            document.getElementById('seedUrl').addEventListener('blur', (e) => {
+                let url = e.target.value.trim();
+                if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                    e.target.value = 'https://' + url;
+                }
+            });
+
+            // Auto-save settings to localStorage (removed due to restriction, keeping in memory)
+            const settings = {
+                maxPages: 10,
+                crawlDelay: 1000,
+                maxSearchResults: 10
+            };
+
+            // Load saved settings
+            document.getElementById('maxPages').value = settings.maxPages;
+            document.getElementById('crawlDelay').value = settings.crawlDelay;
+            document.getElementById('maxSearchResults').value = settings.maxSearchResults;
+        });
+
+        // Make functions globally available
+        window.displayRouteModal = displayRouteModal;
+        window.closeRouteModal = closeRouteModal;
+
+        // Error handling for uncaught errors
+        window.addEventListener('error', (e) => {
+            displayMessage(`❌ Unexpected error: ${e.message}`, 'error');
+            console.error('Uncaught error:', e);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            displayMessage(`❌ Promise rejection: ${e.reason}`, 'error');
+            console.error('Unhandled promise rejection:', e);
+        });
+
+        // Display initial tips
+        setTimeout(() => {
+            displayMessage('💡 Tips: Gunakan URL yang dapat diakses publik untuk hasil terbaik', 'info');
+            displayMessage('⚡ Sistem menggunakan multiple CORS proxy untuk mengatasi pembatasan browser', 'info');
+            displayMessage('🎯 Mulai dengan crawling website, kemudian gunakan fitur pencarian', 'info');
+        }, 1000);
+
+    </script>
+</body>
+</html>
